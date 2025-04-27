@@ -1,0 +1,44 @@
+### 1. Captura e Transcrição de Áudio
+- **Dispositivo → Cliente**: microfone → **webrtcvad** + **rnnoise** → chunking 10 s/50% overlap.
+- **Cliente → ASR**: **Whisper** (`whisper.cpp`) ou **Vosk** offline → JSON `{text, timestamps, confidence}`.
+
+### 2. Diarização e Tagging
+- **Servidor AI**: pipeline **pyannote.audio** para VAD, segmentação e speaker-ID.
+- **Tagging**: anexar `{user_id, channel, environment, timestamp}`.
+
+### 3. Persistência e Segurança
+- **DB**: **Supabase (Postgres Apache-2.0)**  
+- **Tabelas**: `users`, `sessions`, `messages(id, session_id, speaker_id, text, timestamp, embedding, audio_ref)`  
+- **Extensões**: `pgvector` (embeddings), **RLS** (acesso por JWT via Supabase Auth) :contentReference[oaicite:6]{index=6}.
+- **Storage**: Supabase Storage (S3-compatible) para arquivos de áudio.
+
+### 4. Embeddings e Busca Vetorial
+- **Modelos**: **SentenceTransformers** (`all-MiniLM-L6-v2`); opcional **AudioCLIP** para multimodal.
+- **Indexação**: **FAISS** local (CPU/GPU) ou cluster **Milvus**/**Weaviate** :contentReference[oaicite:7]{index=7}.
+
+### 5. Pipelines RAG e LLM
+- **Framework**: **Haystack 2.0** ou **LangChain**  
+- **Fluxo**:  
+  1. `embedding_recent = embed(last_user_text)`  
+  2. `candidates = retrieve(embedding_recent, top_k)`  
+  3. `prompt = build_prompt(candidates, session_history, entitlements)`  
+  4. `response_raw = LLM.generate(prompt, stream=True)`
+
+### 6. Geração de Resposta e Personalização
+- **EthicalControl**: validar `response_raw` com modelo de moderação.  
+- **PersonalizationService**: ajustar estilo e persona, incluir SSML.
+- **EntitlementManager**: selecionar modelo/voz baseado em tier (Free/Premium).
+
+### 7. Síntese de Voz (TTS)
+- **Coqui TTS** ou **Mozilla TTS** com SSML → áudio (WAV/OGG) → streaming WebSocket/HTTP2 .
+
+### 8. Feedback e Aprendizado Contínuo
+- **Implicit Feedback**: latência, abortos, repetições.  
+- **Explicit Feedback**: botão útil/não útil.  
+- **Loop de Treino**: agregar logs + feedback em JSONL → fine-tuning **LoRA/QLoRA** (PEFT) em LLaMA/GPT-like :contentReference[oaicite:8]{index=8}.
+
+### 9. Monitoramento e Segurança
+- **Criptografia** TLS 1.3 fim-a-fim.  
+- **Auth** JWT via Supabase Auth.  
+- **Métricas**: Prometheus + Grafana para ASR, embeddings, RAG, TTS; logging estruturado com correlação de IDs.
+
