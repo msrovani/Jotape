@@ -5,14 +5,15 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Logout
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -21,6 +22,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.jotape.domain.model.Interaction
 import com.jotape.presentation.auth.AuthViewModel
 import kotlinx.coroutines.launch
+import androidx.compose.ui.tooling.preview.Preview
+import com.jotape.ui.theme.JotapeTheme
+import java.time.Instant
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -45,13 +49,16 @@ fun ConversationScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Jotape Chat") },
+                title = { Text("Jotape Assistant") },
                 actions = {
-                    IconButton(onClick = { conversationViewModel.clearChatHistory() }) {
-                        Icon(Icons.Filled.Delete, contentDescription = "Limpar Histórico")
+                    // IconButton(onClick = { conversationViewModel.clearChatHistory() }) { // TODO: Re-enable when history clearing is implemented
+                    //     Icon(Icons.Filled.Delete, contentDescription = "Limpar Histórico")
+                    // }
+                    IconButton(onClick = { /* TODO: Show confirmation dialog? */ conversationViewModel.clearConversationHistory() }) { // Temporarily re-route for testing disabled state message
+                        Icon(Icons.Filled.Delete, contentDescription = "Limpar Histórico (Desativado)")
                     }
                     IconButton(onClick = { authViewModel.signOut() }) {
-                        Icon(Icons.Filled.Logout, contentDescription = "Sair")
+                        Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = "Sair")
                     }
                 }
             )
@@ -94,7 +101,6 @@ fun MessageList(
 
 @Composable
 fun MessageItem(interaction: Interaction) {
-    val alignment = if (interaction.isFromUser) Alignment.CenterEnd else Alignment.CenterStart
     val backgroundColor = if (interaction.isFromUser) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.secondaryContainer
     val textColor = if (interaction.isFromUser) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSecondaryContainer
 
@@ -179,5 +185,13 @@ fun InputBar(
             //     CircularProgressIndicator(modifier = Modifier.size(24.dp))
             // }
         }
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun DefaultPreview() {
+    JotapeTheme {
+        ConversationScreen()
     }
 } 

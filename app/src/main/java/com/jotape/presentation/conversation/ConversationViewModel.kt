@@ -3,6 +3,8 @@ package com.jotape.presentation.conversation
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.jotape.domain.model.DomainResult
+import com.jotape.domain.model.Interaction
+import com.jotape.domain.repository.AuthRepository
 import com.jotape.domain.repository.InteractionRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.delay
@@ -16,7 +18,8 @@ import android.util.Log
 
 @HiltViewModel
 class ConversationViewModel @Inject constructor(
-    private val interactionRepository: InteractionRepository
+    private val interactionRepository: InteractionRepository,
+    private val authRepository: AuthRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ConversationUiState())
@@ -76,21 +79,25 @@ class ConversationViewModel @Inject constructor(
         }
     }
 
-    fun clearChatHistory() {
-        Log.d(TAG, "Attempting to clear chat history...")
+    fun clearConversationHistory() {
         viewModelScope.launch {
+            Log.d(TAG, "Clear history requested from ViewModel")
             _uiState.update { it.copy(isLoading = true, errorMessage = null) }
-            when (val result = interactionRepository.clearHistory()) {
-                is DomainResult.Success -> {
-                    Log.i(TAG, "Clear history successful in repository. Reloading interactions.")
-                    _uiState.update { it.copy(interactions = emptyList(), isLoading = false) }
-                }
-                is DomainResult.Error -> {
-                    Log.e(TAG, "Clear history failed: ${result.message}")
-                    _uiState.update { it.copy(isLoading = false, errorMessage = result.message) }
-                }
-            }
-            Log.d(TAG, "Clear chat history process finished.")
+            // when (val result = interactionRepository.clearHistory()) {
+            //     is DomainResult.Success -> {
+            //         Log.i(TAG, "History cleared successfully")
+            //         _interactions.value = emptyList() // Clear UI immediately
+            //     }
+            //     is DomainResult.Error -> {
+            //         Log.e(TAG, "Failed to clear history: ${result.message}")
+            //         _errorState.value = result.message
+            //     }
+            // }
+            // TODO: Uncomment and adapt when clearHistory is re-enabled
+            Log.w(TAG, "History clearing is currently disabled.")
+            _uiState.update { it.copy(errorMessage = "Funcionalidade de limpar histórico desativada temporariamente.") }
+
+            _uiState.update { it.copy(isLoading = false) }
         }
     }
 } 

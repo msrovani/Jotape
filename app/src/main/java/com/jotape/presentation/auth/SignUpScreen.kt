@@ -19,7 +19,7 @@ import com.jotape.R
 fun SignUpScreen(
     viewModel: AuthViewModel = hiltViewModel(),
     onNavigateToLogin: () -> Unit,
-    onSignUpSuccess: () -> Unit // Keep this for potential Snackbar fallback if needed
+    onSignUpSuccess: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var confirmPassword by remember { mutableStateOf("") }

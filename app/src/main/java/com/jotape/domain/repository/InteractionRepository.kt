@@ -25,10 +25,10 @@ interface InteractionRepository {
      */
     suspend fun addInteraction(text: String, isFromUser: Boolean): DomainResult<Unit>
 
-    /**
-     * Clears all interactions from the history for the current user.
-     */
-    suspend fun clearHistory(): DomainResult<Unit>
+    // /**
+    //  * Clears all interactions from the history for the current user.
+    //  */
+    // suspend fun clearHistory(): DomainResult<Unit>
 
     // We might add pagination methods later if needed:
     // suspend fun getPagedInteractions(limit: Int, offset: Int): List<Interaction>

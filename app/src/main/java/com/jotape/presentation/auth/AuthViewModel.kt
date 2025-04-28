@@ -16,6 +16,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import android.util.Log
 
 // Define the UI state for authentication screens
 data class AuthUiState(
@@ -150,17 +151,23 @@ class AuthViewModel @Inject constructor(
     // Function to handle user logout
     fun signOut() {
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, errorMessage = null) } // Show loading indicator
+            Log.d(TAG, "AuthViewModel: Signing out...")
+            // Limpar qualquer estado de erro anterior
+            _uiState.update { it.copy(errorMessage = null, isLoading = true) }
             when (val result = authRepository.signOut()) {
                 is DomainResult.Success -> {
-                    // Successfully signed out. isLoggedIn StateFlow will automatically update,
-                    // triggering navigation if observed correctly.
-                    // Clear sensitive fields from UI state just in case.
-                    _uiState.update { AuthUiState() } // Reset to initial state
+                    Log.i(TAG, "Sign out successful via AuthViewModel.")
+                    // O estado isLoggedIn deve mudar automaticamente via sessionStatus
+                    _uiState.update { it.copy(isLoading = false) }
                 }
                 is DomainResult.Error -> {
-                    // Handle potential (though unlikely) sign-out errors
-                    _uiState.update { it.copy(isLoading = false, errorMessage = result.message) }
+                    Log.e(TAG, "Sign out error: ${result.message}")
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            errorMessage = "Erro ao sair: ${result.message}"
+                        )
+                    }
                 }
             }
         }
@@ -169,4 +176,7 @@ class AuthViewModel @Inject constructor(
     // No explicit signOut function here, it's usually triggered from another screen
     // but could be added if needed for profile screen etc.
 
+    private companion object {
+        private const val TAG = "AuthViewModel"
+    }
 } 

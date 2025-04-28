@@ -10,5 +10,5 @@ data class Interaction(
     val isFromUser: Boolean,
     val text: String,
     val timestamp: Instant,
-    val isPersistedRemotely: Boolean = false
+    val isSynced: Boolean = false
 ) 

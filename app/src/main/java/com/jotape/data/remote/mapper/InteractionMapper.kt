@@ -28,11 +28,11 @@ fun InteractionDto.toDomainModel(): Interaction? {
     }
 
     return Interaction(
-        id = this.id!!,
+        id = this.id,
         isFromUser = isFromUser,
         text = text,
         timestamp = parsedTimestamp,
-        isPersistedRemotely = true
+        isSynced = true
     )
 }
 

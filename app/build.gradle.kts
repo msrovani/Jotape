@@ -33,11 +33,15 @@ android {
         val supabaseUrl: String = localProperties.getProperty("supabase.url", "YOUR_DEFAULT_URL_IF_NOT_SET")
         val supabaseKey: String = localProperties.getProperty("supabase.key", "YOUR_DEFAULT_KEY_IF_NOT_SET")
         val googleClientId: String = localProperties.getProperty("google.web.client.id", "YOUR_DEFAULT_GOOGLE_CLIENT_ID_IF_NOT_SET")
+        // Ler a chave da API do Gemini
+        val geminiApiKey: String = localProperties.getProperty("gemini.api.key", "YOUR_DEFAULT_GEMINI_KEY_IF_NOT_SET")
 
         // Expose as BuildConfig fields using triple quotes to embed the string value correctly
-        buildConfigField("String", "SUPABASE_URL", """${supabaseUrl}""")
-        buildConfigField("String", "SUPABASE_ANON_KEY", """${supabaseKey}""")
-        buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", """${googleClientId}""")
+        // Forma correta escapando aspas para Java: "\"valor\""
+        buildConfigField("String", "SUPABASE_URL",         "\"${supabaseUrl.replace("\"", "\\\"")}\"")
+        buildConfigField("String", "SUPABASE_ANON_KEY",    "\"${supabaseKey.replace("\"", "\\\"")}\"")
+        buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"${googleClientId.replace("\"", "\\\"")}\"")
+        buildConfigField("String", "GEMINI_API_KEY",       "\"${geminiApiKey.replace("\"", "\\\"")}\"")
     }
 
     buildTypes {
@@ -47,6 +51,42 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+        }
+        debug {
+            // Load properties from local.properties
+            val localProps = Properties()
+            val localPropsFile = rootProject.file("local.properties")
+            if (localPropsFile.exists()) {
+                localPropsFile.inputStream().use { localProps.load(it) }
+            } else {
+                println("Warning: local.properties not found. Default values will be used.")
+            }
+
+            // Helper function to safely get properties or return a default value
+            fun getLocalProperty(key: String, defaultValue: String): String {
+                return localProps.getProperty(key, defaultValue)
+            }
+
+            // BuildConfig fields - READ THESE CAREFULLY
+            // Supabase URL - CRITICAL for connection
+            val supabaseUrl = getLocalProperty("supabase.url", "YOUR_DEFAULT_URL")
+            buildConfigField("String", "SUPABASE_URL", "\"${supabaseUrl.replace("\"", "\\\"")}\"")
+
+            // Supabase Anon Key - CRITICAL for connection
+            val supabaseKey = getLocalProperty("supabase.key", "YOUR_DEFAULT_KEY")
+            buildConfigField("String", "SUPABASE_ANON_KEY", "\"${supabaseKey.replace("\"", "\\\"")}\"")
+
+            // Google Web Client ID - Needed for Google Sign In
+            val googleWebClientId = getLocalProperty("google.web.client.id", "YOUR_DEFAULT_GOOGLE_ID")
+            buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"${googleWebClientId.replace("\"", "\\\"")}\"")
+
+            // Gemini API Key - Read from local.properties
+            val geminiApiKey = getLocalProperty("gemini.api.key", "NO_GEMINI_KEY_IN_PROPERTIES") // Provide a default if not found
+            buildConfigField("String", "GEMINI_API_KEY", "\"${geminiApiKey.replace("\"", "\\\"")}\"")
+
+            // Gemini API URL - REMOVED, not needed in client if backend handles it
+            // val geminiApiUrl = getLocalProperty("Gemini.api.url", "")
+            // buildConfigField("String", "GEMINI_API_URL", ""\"${geminiApiUrl.replace(""", "\"")}\"")
         }
     }
     compileOptions {
@@ -65,16 +105,15 @@ android {
     }
     packaging {
         resources {
-            exclude("META-INF/{AL2.0,LGPL2.1}")
-            exclude("META-INF/versions/9/previous-compilation-data.bin")
+            excludes.add("META-INF/{AL2.0,LGPL2.1}")
+            excludes.add("META-INF/versions/9/previous-compilation-data.bin")
         }
     }
 }
 
 dependencies {
-
-    // Kotlin Standard Library - ESSENTIAL
-    implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8:${rootProject.extra["kotlin_version"]}")
+    implementation(kotlin("stdlib"))
+    implementation(libs.androidx.core.ktx)
 
     implementation(libs.dagger.hilt.android)
     ksp(libs.dagger.hilt.compiler)
@@ -117,6 +156,11 @@ dependencies {
     // Ktor (Dependencies moved before Supabase)
     implementation(libs.ktor.client.core)
     implementation(libs.ktor.client.okhttp)
+    implementation(libs.ktor.client.logging)
+    // Usar o alias definido no TOML
+    implementation(libs.ktor.client.content.negotiation)
+    // Usar o alias definido no TOML
+    implementation(libs.ktor.serialization.kotlinx.json)
 
     // Supabase
     implementation(libs.supabase.gotrue)
@@ -125,10 +169,17 @@ dependencies {
     implementation(libs.supabase.realtime)
     implementation(libs.supabase.compose.auth)
 
+    // Adicionar Hilt Work
+    implementation(libs.hilt.androidx.work)
+
+    // Adicionar WorkManager
+    implementation(libs.androidx.work.runtime.ktx)
+
     // Testes
     androidTestImplementation(libs.androidx.junit)
 
-   
+    // Google AI (Gemini) - Usar o alias corrigido
+    implementation(libs.google.ai.generativeai)
 }
 
 ksp {

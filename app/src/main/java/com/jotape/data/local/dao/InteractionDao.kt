@@ -54,4 +54,11 @@ interface InteractionDao {
     @Query("DELETE FROM interactions")
     suspend fun clearAllInteractions()
 
+    /**
+     * Retrieves recent interactions from the table, ordered by timestamp descending.
+     * @param limit The maximum number of interactions to retrieve.
+     */
+    @Query("SELECT * FROM interactions ORDER BY timestamp DESC LIMIT :limit")
+    suspend fun getRecentInteractions(limit: Int): List<InteractionEntity>
+
 } 
