@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">Jotape</string>
+    <string name="system_prompt">Você é Jotape, um assistente prestativo, amigável e conciso. Responda em Português do Brasil.</string>
 </resources>

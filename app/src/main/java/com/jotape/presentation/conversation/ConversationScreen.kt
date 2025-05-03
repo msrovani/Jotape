@@ -104,7 +104,7 @@ fun MessageItem(interaction: Interaction) {
     val backgroundColor = if (interaction.isFromUser) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.secondaryContainer
     val textColor = if (interaction.isFromUser) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSecondaryContainer
 
-    // Row to hold the bubble and the sync indicator
+    // Row to hold the bubble
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -112,16 +112,6 @@ fun MessageItem(interaction: Interaction) {
         verticalAlignment = Alignment.Bottom,
         horizontalArrangement = if (interaction.isFromUser) Arrangement.End else Arrangement.Start
     ) {
-        // Sync Indicator for User messages (before bubble)
-        if (interaction.isFromUser) {
-            Text(
-                text = if (interaction.isSynced) "S" else "R", // Show S or R
-                fontSize = 10.sp,
-                color = if (interaction.isSynced) Color.Gray else MaterialTheme.colorScheme.error, // Gray for Synced, Error color for Unsynced (R)
-                modifier = Modifier.padding(end = 4.dp).align(Alignment.Bottom)
-            )
-        }
-
         // Message Bubble (Card)
         Card(
             modifier = Modifier.widthIn(max = 300.dp),
@@ -131,16 +121,6 @@ fun MessageItem(interaction: Interaction) {
                 text = interaction.text,
                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
                 color = textColor
-            )
-        }
-
-        // Sync Indicator for Assistant messages (after bubble)
-        if (!interaction.isFromUser) {
-            Text(
-                text = if (interaction.isSynced) "S" else "R", // Show S or R
-                fontSize = 10.sp,
-                color = if (interaction.isSynced) Color.Gray else MaterialTheme.colorScheme.error, // Gray for Synced, Error color for Unsynced (R)
-                modifier = Modifier.padding(start = 4.dp).align(Alignment.Bottom)
             )
         }
     }

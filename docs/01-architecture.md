@@ -21,12 +21,25 @@ Adotamos a **Clean Architecture** para separar as preocupações e promover a te
             *   `DomainResult`: Wrapper genérico para resultados de operações.
             *   `Interaction`, `User` (etc.): Modelos de domínio.
         *   **Dados (`data`):** Implementa interfaces de repositório *do cliente*. Lida com a obtenção/armazenamento de dados de **múltiplas fontes**:
-            *   `AuthRepositoryImpl`: Implementação usando `supabase-kt-gotrue`.
-            *   `InteractionRepositoryImpl`: Implementação usando `supabase-kt-postgrest`.
-            *   **Supabase:** Para autenticação, banco de dados (metadados, perfis, histórico), storage (arquivos brutos).
-            *   **Backend de IA:** Para todas as operações de IA (STT, TTS, RAG, LLM).
-            *   **Cache Local (Room):** Para dados offline e buffer.
-            *   Tecnologias: Kotlin (Coroutines, Flow), Supabase Kotlin Client, Retrofit/OkHttp (para Backend IA), Room.
+            *   **Repositórios:**
+                *   `AuthRepositoryImpl`: Implementação usando `supabase-kt-gotrue`.
+                *   `InteractionRepositoryImpl`: Implementação que:
+                    *   Usa `JotapeApiService` (Retrofit) para chamar a Edge Function `process-user-command` para enviar mensagens e receber respostas.
+                    *   Usa `SupabaseClient.realtime` (`postgresChangeFlow`) para obter e observar o histórico de interações em tempo real.
+                    *   Usa `SupabaseClient.postgrest` para limpar o histórico.
+                    *   **Não usa mais Room ou WorkManager.**
+            *   **Fontes de Dados:**
+                *   **Supabase (`SupabaseClient`, `Postgrest`, `Auth`, `Realtime`):** Backend para autenticação, armazenamento persistente das interações, e atualizações em tempo real.
+                *   **Supabase Edge Function (`process-user-command`):** Lógica server-side (Deno/TypeScript) que recebe o prompt, salva no DB, busca histórico, chama Gemini, salva a resposta no DB e retorna ao cliente.
+                *   **Google AI API (Gemini):** Chamado **pela Edge Function** para gerar as respostas do assistente.
+            *   **API Services (`api` - Retrofit):**
+                *   `JotapeApiService`: Define o endpoint para a Edge Function `process-user-command`.
+            *   **DI (`di` - Hilt):
+                *   `SupabaseModule`: Fornece o `SupabaseClient` e seus componentes (`Auth`, `Postgrest`, `Realtime`).
+                *   `NetworkModule`: Fornece `OkHttpClient`, `Retrofit` e `JotapeApiService`. Configura `AuthInterceptor` para adicionar headers Supabase.
+                *   `RepositoryModule`: Faz o bind das interfaces de repositório (`AuthRepository`, `InteractionRepository`) às suas implementações (`...Impl`).
+                *   `PromptManager`: **Mantido** (pode ser usado para prompts do sistema enviados à Edge Function ou para lógica futura no cliente).
+            *   **Tecnologias:** Kotlin (Coroutines, Flow), Supabase Kotlin Client (Auth, Postgrest, Realtime), Retrofit, OkHttp, Kotlinx Serialization, Hilt.
 
 *   **Backend de IA (Serviço Dedicado):**
     *   **Propósito:** Orquestra e executa todo o pipeline de processamento de IA descrito no `Prompt-AI.txt`. Responsável por STT, diarização/verificação, geração de embeddings, RAG, chamadas LLM, controle ético e TTS.
@@ -34,9 +47,12 @@ Adotamos a **Clean Architecture** para separar as preocupações e promover a te
     *   **API:** Expõe uma API (e.g., REST, gRPC) para o App Android consumir os serviços de IA.
 
 *   **Supabase (BaaS):**
-    *   **Propósito:** Fornece serviços de backend essenciais: autenticação, banco de dados relacional (PostgreSQL), armazenamento de objetos e funções serverless leves.
-    *   **Componentes Usados:** Auth (JWT), PostgreSQL DB (com **RLS** e extensão **pgvector** para busca vetorial usada pelo Backend de IA), Storage, Edge Functions (TypeScript/Deno).
-    *   **Edge Functions:** Usadas para lógica serverless *leve* que interage diretamente com Supabase (e.g., gatilhos de DB, validações simples, endpoints seguros para operações diretas no Supabase) ou como *gateways* seguros para invocar o Backend de IA. **Não devem conter lógica de IA pesada.**
+    *   **Propósito:** Fornece serviços de backend essenciais: autenticação (JWT), banco de dados relacional (PostgreSQL para histórico), **Edge Functions (lógica serverless)**, **Realtime (WebSockets para atualizações)**.
+    *   **Componentes Usados:** Auth, PostgreSQL DB, Edge Functions, Realtime.
+
+*   **Google AI Platform (Gemini):**
+    *   **Propósito:** Fornece o modelo de linguagem grande (LLM) para gerar as respostas do assistente.
+    *   **Componentes Usados:** API Gemini (atualmente configurada para `gemini-2.0-flash`).
 
 ## 2.2 Linguagens e Ferramentas Principais
 
@@ -44,11 +60,15 @@ Adotamos a **Clean Architecture** para separar as preocupações e promover a te
 *   **Jetpack Compose:** Toolkit de UI declarativo para Android.
 *   **Hilt:** Injeção de Dependência no Android.
 *   **Python (Potencial):** Linguagem primária para o Backend de IA dedicado.
-*   **Supabase:** Backend as a Service (BaaS) central.
-    *   Auth, PostgreSQL (com **pgvector**), RLS, Realtime Subscriptions, Storage, Edge Functions (TypeScript/Deno).
-*   **Room:** Persistência local (cache offline) no Android.
-*   **Retrofit & OkHttp:** Cliente HTTP no Android para comunicação com o Backend de IA e Edge Functions.
+*   **Supabase:** Backend as a Service (BaaS) para Auth e DB.
+    *   Auth, PostgreSQL.
+*   **Retrofit & OkHttp:** Cliente HTTP no Android para comunicação com a Edge Function.
 *   **~~Android SpeechRecognizer:~~** **Substituído** pela API de STT do Backend de IA para a funcionalidade principal.
 *   **~~Android TextToSpeech:~~** **Substituído** pela API de TTS do Backend de IA para a voz principal do assistente. Pode ser usado para feedback secundário/local se necessário.
 *   **Tecnologias de IA (Backend):** Whisper/Vosk, pyannote, SentenceTransformers, Haystack/LangChain, Coqui/Mozilla TTS, etc. (conforme `Prompt-AI.txt`).
+*   **Kotlinx DateTime & Serialization:** Para manipulação de data/hora e JSON no Android.
+*   **Google AI Generative SDK:** Biblioteca cliente para interagir com a API Gemini.
+*   **Kotlinx Serialization:** Para serialização/desserialização JSON entre App e Edge Function.
+*   **Supabase Kotlin Client:** Biblioteca completa para interagir com Auth, Postgrest e Realtime.
+*   **~~WorkManager:~~** **Removido.**
 *   **Kotlinx DateTime & Serialization:** Para manipulação de data/hora e JSON no Android. 

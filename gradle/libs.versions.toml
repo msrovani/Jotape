@@ -6,8 +6,8 @@
 agp = "8.9.2"
 # Kotlin
 kotlin = "1.9.24"
-# KSP (Mantendo a versão definida, embora KAPT esteja em uso no app)
-ksp = "1.9.24-1.0.19"
+# KSP (Usar versão consistente com settings.gradle.kts)
+ksp = "1.9.24-1.0.20"
 # Hilt
 hilt = "2.50"
 # Compose Compiler
@@ -21,7 +21,7 @@ material3 = "1.2.1"
 junit = "1.1.5"
 espressoCore = "3.5.1"
 navigationCompose = "2.7.7"
-room = "2.6.1"
+# room = "2.6.1" # Remover versão do Room
 lifecycleViewmodel = "2.8.2"
 # kotlinx
 coroutines = "1.8.0"
@@ -39,8 +39,14 @@ googleAiGenerativeai = "0.5.0" # Usar a versão mais recente ou a desejada
 # Adicionar WorkManager e Hilt Work
 androidxWork = "2.9.0" # Verificar versão mais recente
 hiltWork = "1.2.0"
+retrofit = "2.9.0" # Ou versão mais recente
+retrofit-kotlinx-serialization-converter = "1.0.0" # Ou versão mais recente
+okhttp = "4.12.0" # Ou a versão mais recente compatível
 
 [libraries]
+# Adicionar alias para kotlin-stdlib
+kotlin-stdlib = { group = "org.jetbrains.kotlin", name = "kotlin-stdlib", version.ref = "kotlin" }
+
 # AndroidX Core & Lifecycle
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 androidx-lifecycle-runtime-ktx = { group = "androidx.lifecycle", name = "lifecycle-runtime-ktx", version.ref = "lifecycleRuntimeKtx" }
@@ -60,10 +66,10 @@ androidx-material-icons-extended = { group = "androidx.compose.material", name =
 androidx-navigation-compose = { group = "androidx.navigation", name = "navigation-compose", version.ref = "navigationCompose" }
 
 # AndroidX Room
-androidx-room-runtime = { group = "androidx.room", name = "room-runtime", version.ref = "room" }
-androidx-room-compiler = { group = "androidx.room", name = "room-compiler", version.ref = "room" }
-androidx-room-ktx = { group = "androidx.room", name = "room-ktx", version.ref = "room" }
-androidx-room-testing = { group = "androidx.room", name = "room-testing", version.ref = "room" }
+# androidx-room-runtime = { group = "androidx.room", name = "room-runtime", version.ref = "room" }
+# androidx-room-compiler = { group = "androidx.room", name = "room-compiler", version.ref = "room" }
+# androidx-room-ktx = { group = "androidx.room", name = "room-ktx", version.ref = "room" }
+# androidx-room-testing = { group = "androidx.room", name = "room-testing", version.ref = "room" }
 
 # Hilt / Dagger
 dagger-hilt-android = { group = "com.google.dagger", name = "hilt-android", version.ref = "hilt" }
@@ -119,9 +125,18 @@ hilt-androidx-work = { group = "androidx.hilt", name = "hilt-work", version.ref 
 # Hilt Compiler (necessário para Hilt Work) - já deve existir
 # dagger-hilt-compiler = { group = "com.google.dagger", name = "hilt-compiler", version.ref = "hilt" }
 
+# Retrofit
+retrofit2-retrofit = { module = "com.squareup.retrofit2:retrofit", version.ref = "retrofit" }
+retrofit2-converter-kotlinx-serialization = { module = "com.jakewharton.retrofit:retrofit2-kotlinx-serialization-converter", version.ref = "retrofit-kotlinx-serialization-converter" }
+
+# OkHttp Logging
+okhttp3-logging-interceptor = { module = "com.squareup.okhttp3:logging-interceptor", version.ref = "okhttp" }
+
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
+# Adicionar alias para KSP plugin
+ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
 dagger-hilt = { id = "com.google.dagger.hilt.android", version.ref = "hilt" }
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
 

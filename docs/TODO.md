@@ -17,68 +17,69 @@ Este documento detalha as tarefas pendentes para a implementação completa das 
 
 ## ⚙️ (C/S/B/I) Configuração, Base e Infraestrutura
 
-*   [ ] **(A-C) Build/Dependências (Android):**
-    *   [ ] Verificar/atualizar dependências Gradle (Supabase Clients, Retrofit, Hilt, Room, Serialization, DateTime, etc.).
-    *   [ ] Configurar plugin `kotlinx.serialization`.
-*   [ ] **(B-C) Build/Dependências (Backend IA):**
-    *   [ ] Definir gerenciador de pacotes (pip/requirements.txt, poetry, etc.).
-    *   [ ] Adicionar dependências Python (framework web como FastAPI/Flask, libs Supabase, libs de IA: transformers, whisper, sentence-transformers, TTS, etc.).
-*   [ ] **(S-C) Infraestrutura Supabase:**
-    *   [x] Validar config Supabase Client no Android (`di/SupabaseModule.kt` - **mover credenciais para local seguro**).
-    *   [ ] Configurar projeto Supabase (Auth Providers, DB, Storage Buckets).
-    *   [ ] Habilitar extensão `pgvector` no Supabase DB.
-    *   [ ] Definir e aplicar Schemas/RLS/Políticas de Storage via Migrations (Supabase CLI).
-*   [ ] **(B-C) Infraestrutura Backend IA:**
-    *   [ ] Escolher e configurar plataforma de hospedagem (Cloud Run, Kubernetes, etc.).
-    *   [ ] Configurar CI/CD para Backend IA (ver `06-devops-qa.md`).
-*   [ ] **(I) Definição de API Backend IA:**
-    *   [ ] Definir contratos (OpenAPI/Swagger?) para os endpoints: `/stt`, `/generate-response`, `/tts`, `/process-voice` (verificação), etc. Especificar formatos de requisição/resposta, autenticação (JWT vindo do App?).
-*   [ ] **(A-C) Configuração Android:**
-    *   [x] Validar config Retrofit (`di/NetworkModule.kt` - **mover URL base do Backend IA para local seguro**).
-    *   [ ] Validar config Room (`di/DatabaseModule.kt`).
-    *   [ ] Implementar `Provides` para DAOs e Repositórios Hilt.
-    *   [ ] Definir `Result` wrapper no Android.
+*   [x] **(A-C) Build/Dependências (Android):**
+    *   [x] Verificar/atualizar dependências Gradle (Supabase Clients, Hilt, Room, WorkManager, Google AI SDK, Serialization, DateTime, etc.).
+    *   [x] Configurar plugin `kotlinx.serialization` (se usado).
+    *   [x] Corrigir problemas de build relacionados a dependências (`kotlin-stdlib`, `material-icons-extended`) e `BuildConfig`.
+*   [ ] **(B-C) Build/Dependências (Backend IA):** (Se houver Backend dedicado)
+*   [x] **(S-C) Infraestrutura Supabase:**
+    *   [x] Validar config Supabase Client no Android (`di/SupabaseModule.kt`).
+    *   [x] Configurar projeto Supabase (Auth Providers Email/Google).
+    *   [x] Definir Schemas (`users`, `interactions`) e RLS via SQL Editor/Migrations.
+*   [ ] **(B-C) Infraestrutura Backend IA:** (Se houver Backend dedicado)
+*   [ ] **(I) Definição de API Backend IA:** (Se houver Backend dedicado)
+*   [x] **(A-C) Configuração Android:**
+    *   [x] Validar config Room (`di/DatabaseModule.kt`).
+    *   [x] Implementar `Provides`/@Binds para DAOs e Repositórios Hilt.
+    *   [x] Definir `DomainResult` wrapper no Android.
+    *   [x] Configurar `GeminiModule` para ler chave API do `BuildConfig`.
+    *   [x] Configurar `WorkManager` para usar Hilt (`JotapeApplication` simplificada).
+    *   [x] **(Novo)** Implementar `PromptManager` para centralizar prompts.
 *   [ ] **(A-R) Refatoração Android:**
-    *   [ ] Mover lógica Auth do `ConversationViewModel` para `AuthViewModel`.
-    *   [x] Mover DTOs/Mappers para arquivos dedicados.
-    *   [ ] **(A-R)** Reconciliar/Refatorar interface `VoiceRepository` para refletir chamadas ao Backend IA/Edge Function.
-    *   [x] **(A-R)** Organizar pacotes conforme Clean Architecture (movido DatabaseModule).
+    *   [ ] Mover lógica de IA do `InteractionRepositoryImpl` para UseCases dedicados.
+    *   [ ] Mover prompts do `PromptManager` para `strings.xml` para i18n.
+    *   [ ] Investigar e corrigir erros persistentes de Linter no IDE.
+*   [ ] **(A-R)** Reconciliar/Refatorar interface `VoiceRepository` para refletir chamadas ao Backend IA/Edge Function.
+*   [x] **(A-R)** Organizar pacotes conforme Clean Architecture (movido DatabaseModule).
 
 ---
 
 ## 🔐 (S/A) Autenticação e Perfis (`auth`, `user_profiles`) - Fase 2
 
-*   [x] **(S)** Configurar projeto Supabase Cloud (Auth Providers Email/Google, Tabelas, RLS via SQL Editor).
-*   [x] **(S)** Definir schema `user_profiles`, RLS. (Feito no script SQL)
-*   [x] **(A)** Implementar `AuthRepositoryImpl` (Android): usa `Supabase Client Auth` (inclui tratamento básico de erro de login).
-*   [x] **(A)** Implementar `AuthViewModel` (Android): Gerencia `AuthUiState` (inclui estado `isSignUpSuccess`).
-*   [x] **(A)** Implementar UI `LoginScreen` / `SignUpScreen` (Android Compose) (SignUp com diálogo de confirmação).
-*   [x] **(A)** Configurar Navegação (`MainActivity`, `Routes.kt`) para fluxo básico Auth -> Chat e Logout -> Auth.
-*   [x] **(A)** Implementar função de Logout no `AuthViewModel` e botão na `ConversationScreen`.
-*   [x] **(C)** Configurar `local.properties` com credenciais Supabase/Google.
-*   [x] **(C)** Corrigir problemas de build relacionados a dependências (`kotlin-stdlib`, `material-icons-extended`) e `BuildConfig`.
-*   [x] **(S/C)** Configurar URI de redirecionamento correto para Google Sign-In no Google Cloud Console.
+*   [x] **(S)** Configurar projeto Supabase Cloud (Auth Providers Email/Google).
+*   [ ] **(S)** Definir schema `user_profiles` (se necessário), RLS.
+*   [x] **(A)** Implementar `AuthRepositoryImpl` (Android): usa `Supabase Client Auth`.
+*   [x] **(A)** Implementar `AuthViewModel` (Android).
+*   [x] **(A)** Implementar UI `LoginScreen` / `SignUpScreen`.
+*   [x] **(A)** Configurar Navegação.
+*   [x] **(A)** Implementar função de Logout.
+*   [x] **(C)** Configurar `local.properties` com credenciais.
+*   [x] **(S/C)** Configurar URI de redirecionamento Google.
+*   [ ] **(A)** Implementar recuperação de senha.
+*   [ ] **(A)** Refinar tratamento de erros Auth.
+*   [ ] **(A)** Implementar gerenciamento de perfil do usuário (se `user_profiles` for usado).
 
-*   **Status:** Fluxo básico de Autenticação (Cadastro com confirmação, Login Email/Senha, Login Google, Logout) implementado e funcional. Próximos passos: refinar tratamento de erros, implementar recuperação de senha, gerenciar perfil do usuário.
+*   **Status:** Autenticação básica (Email/Senha c/ Confirmação, Google, Logout) FUNCIONAL. Tarefas pendentes: recuperação de senha, perfil, tratamento de erro refinado.
 
 ---
 
-## 🗣️ (S/B/A/I) Conversa, Interações e Memória (`interactions`, RAG)
+## 💬 (S/A) Conversa, Interações e Sincronização (`interactions`)
 
-*   [x] **(S)** Definir schema `interactions` (com `user_id`). Habilitar RLS. (Feito no script SQL)
-*   [ ] **(S)** Criar índice vetorial (e.g., IVFFlat, HNSW) na coluna `embedding`. (Adiado)
-*   [ ] **(B)** Implementar Pipeline RAG (Backend IA - Python). (Adiado - Fase 3+)
+*   [x] **(S)** Definir schema `interactions` (com `user_id`). Habilitar RLS.
+*   [x] **(A)** Implementar `InteractionDao` (Room).
 *   [x] **(A)** Implementar `InteractionRepositoryImpl` (Android):
-    *   [x] Usar Supabase Postgrest para `getAllInteractions`, `addInteraction`, `clearHistory`.
-    *   [ ] Remover dependência/uso do Room (ou manter apenas para cache). (Pendente)
+    *   [x] Usa `Room` para salvar/ler localmente.
+    *   [x] Usa `Google AI SDK` para chamar Gemini (com prompt do `PromptManager`).
+    *   [x] Tenta sincronizar imediatamente com Supabase (`trySyncInteractionImmediately`).
+    *   [x] Usa `WorkManager` (`SyncInteractionWorker`) para sincronização em background.
+*   [x] **(A)** Implementar `SyncInteractionWorker` (HiltWorker).
 *   [x] **(A)** Adaptar `ConversationViewModel` (Android):
-    *   [x] Chamar `InteractionRepository` (agora suspend).
-    *   [ ] Implementar paginação (se necessário). (Adiado)
-    *   [x] Expor estado de carregamento/resposta.
-    *   [x] Implementar `clearChatHistory()` (inicialmente não funcional, agora corrigido).
-*   [ ] **(A)** Implementar paginação na `ConversationScreen` (Android Compose). (Adiado)
+    *   [x] Chamar `InteractionRepository`.
+    *   [x] Expor estado de UI (mensagens, loading, erro) via `StateFlow`.
+    *   [x] Implementar `clearChatHistory()`.
+*   [x] **(A)** Implementar `ConversationScreen` (Compose) para exibir mensagens (com status 'R'/'S'), input e loading.
 
-*   **Status:** Interação básica com Supabase via Repositório/ViewModel implementada. Limpar histórico funcional. Paginação e RAG pendentes.
+*   **Status:** Chat funcional com persistência local (Room), geração de resposta via Gemini (usando PromptManager), sincronização imediata (best-effort) e sincronização robusta em background (WorkManager) com Supabase. Mensagens exibem status R/S (requer verificação visual se R->S está funcionando como esperado após sync). Próximos passos: otimizações, tratamento de erros visuais, talvez paginação.
 
 ---
 

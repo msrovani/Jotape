@@ -4,22 +4,16 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.jotape.domain.model.DomainResult
 import com.jotape.domain.model.Interaction
-import com.jotape.domain.repository.AuthRepository
 import com.jotape.domain.repository.InteractionRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 import android.util.Log
 
 @HiltViewModel
 class ConversationViewModel @Inject constructor(
-    private val interactionRepository: InteractionRepository,
-    private val authRepository: AuthRepository
+    private val interactionRepository: InteractionRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ConversationUiState())
@@ -27,21 +21,47 @@ class ConversationViewModel @Inject constructor(
     private val TAG = "ConversationViewModel"
 
     init {
-        Log.d(TAG, "ViewModel initialized, loading interactions.")
-        loadInteractions()
+        Log.d(TAG, "ViewModel initialized, starting to collect interactions.")
+        collectInteractions()
     }
 
-    private fun loadInteractions() {
+    private fun collectInteractions() {
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, errorMessage = null) }
-            when (val result = interactionRepository.getAllInteractions()) {
-                is DomainResult.Success -> {
-                    _uiState.update { it.copy(isLoading = false, interactions = result.data) }
+            interactionRepository.getAllInteractions()
+                .onStart {
+                    Log.d(TAG, "Interaction collection started.")
+                    _uiState.update { it.copy(isLoading = true, errorMessage = null) }
                 }
-                is DomainResult.Error -> {
-                    _uiState.update { it.copy(isLoading = false, errorMessage = result.message) }
+                .catch { e ->
+                    Log.e(TAG, "Error collecting interactions flow", e)
+                    _uiState.update { it.copy(isLoading = false, errorMessage = "Erro ao observar atualizações: ${e.message}") }
                 }
-            }
+                .collect { result ->
+                    when (result) {
+                        is DomainResult.Success -> {
+                            Log.d(TAG, "Received interactions order (${result.data.size} items):")
+                            result.data.forEachIndexed { index, interaction ->
+                                Log.d(TAG, "  [$index]: ${interaction.timestamp} - [User: ${interaction.isFromUser}] - ${interaction.text.take(30)}")
+                            }
+                            _uiState.update {
+                                it.copy(
+                                    isLoading = false,
+                                    interactions = result.data,
+                                    errorMessage = null
+                                )
+                            }
+                        }
+                        is DomainResult.Error -> {
+                            Log.w(TAG, "Interaction flow collected an error: ${result.message}")
+                            _uiState.update {
+                                it.copy(
+                                    isLoading = false,
+                                    errorMessage = result.message
+                                )
+                            }
+                        }
+                    }
+                }
         }
     }
 
@@ -51,31 +71,23 @@ class ConversationViewModel @Inject constructor(
 
     fun sendMessage() {
         val currentInputText = _uiState.value.inputText.trim()
-        if (currentInputText.isEmpty() || _uiState.value.isLoading) {
+        if (currentInputText.isEmpty() || _uiState.value.isSending) {
             return
         }
 
-        _uiState.update { it.copy(inputText = "", isLoading = true, errorMessage = null) }
+        _uiState.update { it.copy(inputText = "", isSending = true, errorMessage = null) }
 
         viewModelScope.launch {
-            val userResult = interactionRepository.addInteraction(text = currentInputText, isFromUser = true)
+            val result = interactionRepository.sendMessage(userMessage = currentInputText)
 
-            if (userResult is DomainResult.Error) {
-                _uiState.update { it.copy(isLoading = false, errorMessage = userResult.message) }
-                return@launch
+            _uiState.update { it.copy(isSending = false) }
+
+            if (result is DomainResult.Error) {
+                Log.e(TAG, "Error sending message: ${result.message}")
+                _uiState.update { it.copy(errorMessage = result.message) }
+            } else {
+                Log.d(TAG, "Message sent successfully via repository.")
             }
-
-            delay(1000)
-            val botResponse = "Entendido (Supabase): '$currentInputText'"
-            val botResult = interactionRepository.addInteraction(text = botResponse, isFromUser = false)
-
-            if (botResult is DomainResult.Error) {
-                _uiState.update { it.copy(isLoading = false, errorMessage = botResult.message) }
-                loadInteractions()
-                return@launch
-            }
-            
-            loadInteractions()
         }
     }
 
@@ -83,21 +95,17 @@ class ConversationViewModel @Inject constructor(
         viewModelScope.launch {
             Log.d(TAG, "Clear history requested from ViewModel")
             _uiState.update { it.copy(isLoading = true, errorMessage = null) }
-            // when (val result = interactionRepository.clearHistory()) {
-            //     is DomainResult.Success -> {
-            //         Log.i(TAG, "History cleared successfully")
-            //         _interactions.value = emptyList() // Clear UI immediately
-            //     }
-            //     is DomainResult.Error -> {
-            //         Log.e(TAG, "Failed to clear history: ${result.message}")
-            //         _errorState.value = result.message
-            //     }
-            // }
-            // TODO: Uncomment and adapt when clearHistory is re-enabled
-            Log.w(TAG, "History clearing is currently disabled.")
-            _uiState.update { it.copy(errorMessage = "Funcionalidade de limpar histórico desativada temporariamente.") }
 
-            _uiState.update { it.copy(isLoading = false) }
+            when (val result = interactionRepository.clearHistory()) {
+                is DomainResult.Success -> {
+                    Log.i(TAG, "History cleared successfully via repository")
+                    _uiState.update { it.copy(isLoading = false, errorMessage = null) }
+                }
+                is DomainResult.Error -> {
+                    Log.e(TAG, "Failed to clear history: ${result.message}")
+                    _uiState.update { it.copy(isLoading = false, errorMessage = result.message) }
+                }
+            }
         }
     }
 } 

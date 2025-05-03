@@ -5,25 +5,29 @@ import com.jotape.domain.model.DomainResult
 import kotlinx.coroutines.flow.Flow
 
 /**
- * Repository interface for managing interactions.
- * Defines the contract for data operations related to conversations.
+ * Interface for managing chat interactions.
  */
 interface InteractionRepository {
 
     /**
-     * Gets the list of all interactions for the current user.
-     * Fetches the current state from the remote source.
+     * Retrieves all interactions for the current user as a Flow.
+     * The Flow emits updates whenever the interaction list changes (e.g., new messages).
      */
-    suspend fun getAllInteractions(): DomainResult<List<Interaction>>
+    fun getAllInteractions(): Flow<DomainResult<List<Interaction>>>
 
     /**
-     * Adds a new interaction to the repository.
-     * In Phase 1, this saves locally. Later, it might trigger network calls.
+     * Sends a user message to the backend for processing.
+     * The implementation should handle communication with the AI and persistence.
      *
-     * @param text The content of the message.
-     * @param isFromUser True if the message is from the user, false if from the assistant.
+     * @param userMessage The text message sent by the user.
+     * @return A DomainResult indicating success or failure of the send operation.
      */
-    suspend fun addInteraction(text: String, isFromUser: Boolean): DomainResult<Unit>
+    suspend fun sendMessage(userMessage: String): DomainResult<Unit>
+
+    /**
+     * Clears the entire interaction history for the current user.
+     */
+    suspend fun clearHistory(): DomainResult<Unit>
 
     // /**
     //  * Clears all interactions from the history for the current user.

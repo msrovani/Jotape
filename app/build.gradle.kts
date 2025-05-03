@@ -4,7 +4,7 @@ import java.io.FileInputStream
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
-    id("com.google.devtools.ksp")
+    alias(libs.plugins.ksp)
     alias(libs.plugins.dagger.hilt)
     alias(libs.plugins.kotlin.serialization)
 }
@@ -112,13 +112,12 @@ android {
 }
 
 dependencies {
-    implementation(kotlin("stdlib"))
+    implementation(libs.kotlin.stdlib)
     implementation(libs.androidx.core.ktx)
 
     implementation(libs.dagger.hilt.android)
     ksp(libs.dagger.hilt.compiler)
 
-    implementation("androidx.core:core-ktx:1.13.1")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.0")
     implementation(libs.androidx.activity.compose)
     implementation(platform(libs.androidx.compose.bom))
@@ -137,11 +136,6 @@ dependencies {
 
     implementation(libs.androidx.hilt.navigation.compose)
 
-    implementation(libs.androidx.room.runtime)
-    ksp(libs.androidx.room.compiler)
-    implementation(libs.androidx.room.ktx)
-    testImplementation(libs.androidx.room.testing)
-
     implementation(libs.androidx.lifecycle.viewmodel.ktx)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.lifecycle.runtime.compose)
@@ -153,33 +147,18 @@ dependencies {
 
     implementation(libs.kotlinx.serialization.json)
 
-    // Ktor (Dependencies moved before Supabase)
-    implementation(libs.ktor.client.core)
-    implementation(libs.ktor.client.okhttp)
-    implementation(libs.ktor.client.logging)
-    // Usar o alias definido no TOML
-    implementation(libs.ktor.client.content.negotiation)
-    // Usar o alias definido no TOML
-    implementation(libs.ktor.serialization.kotlinx.json)
+    implementation(libs.retrofit2.retrofit)
+    implementation(libs.retrofit2.converter.kotlinx.serialization)
 
-    // Supabase
+    implementation(libs.okhttp3.logging.interceptor)
+
     implementation(libs.supabase.gotrue)
     implementation(libs.supabase.postgrest)
     implementation(libs.supabase.storage)
     implementation(libs.supabase.realtime)
     implementation(libs.supabase.compose.auth)
 
-    // Adicionar Hilt Work
-    implementation(libs.hilt.androidx.work)
-
-    // Adicionar WorkManager
-    implementation(libs.androidx.work.runtime.ktx)
-
-    // Testes
     androidTestImplementation(libs.androidx.junit)
-
-    // Google AI (Gemini) - Usar o alias corrigido
-    implementation(libs.google.ai.generativeai)
 }
 
 ksp {

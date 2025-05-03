@@ -9,5 +9,6 @@ data class ConversationUiState(
     val interactions: List<Interaction> = emptyList(),
     val inputText: String = "",
     val isLoading: Boolean = false,
+    val isSending: Boolean = false,
     val errorMessage: String? = null
 ) 
