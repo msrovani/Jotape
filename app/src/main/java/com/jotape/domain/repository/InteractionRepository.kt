@@ -1,40 +1,29 @@
 package com.jotape.domain.repository
 
 import com.jotape.domain.model.Interaction
-import com.jotape.domain.model.DomainResult
+import com.jotape.domain.model.Resource
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.StateFlow
 
 /**
- * Interface for managing chat interactions.
+ * Interface defining operations for managing interactions (chat messages).
  */
 interface InteractionRepository {
 
     /**
-     * Retrieves all interactions for the current user as a Flow.
-     * The Flow emits updates whenever the interaction list changes (e.g., new messages).
-     */
-    fun getAllInteractions(): Flow<DomainResult<List<Interaction>>>
-
-    /**
      * Sends a user message to the backend for processing.
-     * The implementation should handle communication with the AI and persistence.
      *
-     * @param userMessage The text message sent by the user.
-     * @return A DomainResult indicating success or failure of the send operation.
+     * @param message The text message input by the user.
+     * @return A [Resource] indicating the success or failure of the operation.
      */
-    suspend fun sendMessage(userMessage: String): DomainResult<Unit>
+    suspend fun sendMessage(message: String): Resource<Unit>
 
     /**
-     * Clears the entire interaction history for the current user.
+     * Provides a stream of interactions for the current session.
+     * The stream emits updates reflecting the current state of the conversation.
+     *
+     * @return A [StateFlow] emitting [Resource] updates containing the list of [Interaction]s.
      */
-    suspend fun clearHistory(): DomainResult<Unit>
+    fun getInteractionsStream(): StateFlow<Resource<List<Interaction>>>
 
-    // /**
-    //  * Clears all interactions from the history for the current user.
-    //  */
-    // suspend fun clearHistory(): DomainResult<Unit>
-
-    // We might add pagination methods later if needed:
-    // suspend fun getPagedInteractions(limit: Int, offset: Int): List<Interaction>
-    // suspend fun getInteractionCount(): Int
-} 
+}

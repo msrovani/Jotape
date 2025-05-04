@@ -24,22 +24,22 @@ Adotamos a **Clean Architecture** para separar as preocupações e promover a te
             *   **Repositórios:**
                 *   `AuthRepositoryImpl`: Implementação usando `supabase-kt-gotrue`.
                 *   `InteractionRepositoryImpl`: Implementação que:
-                    *   Usa `JotapeApiService` (Retrofit) para chamar a Edge Function `process-user-command` para enviar mensagens e receber respostas.
-                    *   Usa `SupabaseClient.realtime` (`postgresChangeFlow`) para obter e observar o histórico de interações em tempo real.
-                    *   Usa `SupabaseClient.postgrest` para limpar o histórico.
-                    *   **Não usa mais Room ou WorkManager.**
+                    *   Usa `SupabaseClient.functions` para invocar a Edge Function `extract-chat-and-points` ao enviar uma nova mensagem de usuário. Esta função orquestra a chamada ao Gemini e salva a interação no banco de dados Supabase.
+                    *   Usa `SupabaseClient.realtime` (`postgresChangeFlow`) para *receber* atualizações (novas interações) do banco de dados Supabase em tempo real.
+                    *   Usa `SupabaseClient.postgrest` para buscar o histórico inicial e para limpar o histórico.
+                    *   **Utiliza `WorkManager` (`SyncInteractionWorker`)** como um mecanismo de *fallback* para sincronizar interações com o Supabase caso a escrita inicial (potencialmente feita pela Edge Function ou diretamente pelo app) falhe ou para sincronizações periódicas. (Nota: A estratégia exata de escrita ainda está sendo refinada, mas o Worker está presente para robustez).
             *   **Fontes de Dados:**
-                *   **Supabase (`SupabaseClient`, `Postgrest`, `Auth`, `Realtime`):** Backend para autenticação, armazenamento persistente das interações, e atualizações em tempo real.
-                *   **Supabase Edge Function (`process-user-command`):** Lógica server-side (Deno/TypeScript) que recebe o prompt, salva no DB, busca histórico, chama Gemini, salva a resposta no DB e retorna ao cliente.
+                *   **Supabase (`SupabaseClient`, `Postgrest`, `Auth`, `Realtime`, `Functions`):** Backend para autenticação, armazenamento persistente das interações, lógica serverless e atualizações em tempo real.
+                *   **Supabase Edge Function (`extract-chat-and-points`):** Lógica server-side (Deno/TypeScript) que recebe a mensagem do usuário e histórico, chama a API do Gemini, e **potencialmente** salva as interações (usuário e assistente) no banco de dados Supabase. Retorna a resposta do Gemini para o app.
                 *   **Google AI API (Gemini):** Chamado **pela Edge Function** para gerar as respostas do assistente.
             *   **API Services (`api` - Retrofit):**
-                *   `JotapeApiService`: Define o endpoint para a Edge Function `process-user-command`.
+                *   **Removido/Não utilizado atualmente:** A comunicação com a Edge Function é feita diretamente via `SupabaseClient.functions`.
             *   **DI (`di` - Hilt):
-                *   `SupabaseModule`: Fornece o `SupabaseClient` e seus componentes (`Auth`, `Postgrest`, `Realtime`).
-                *   `NetworkModule`: Fornece `OkHttpClient`, `Retrofit` e `JotapeApiService`. Configura `AuthInterceptor` para adicionar headers Supabase.
+                *   `SupabaseModule`: Fornece o `SupabaseClient` e seus componentes (`Auth`, `Postgrest`, `Realtime`, `Functions`).
+                *   **Removido:** `NetworkModule` (Retrofit/OkHttp não são mais usados para a Edge Function).
                 *   `RepositoryModule`: Faz o bind das interfaces de repositório (`AuthRepository`, `InteractionRepository`) às suas implementações (`...Impl`).
-                *   `PromptManager`: **Mantido** (pode ser usado para prompts do sistema enviados à Edge Function ou para lógica futura no cliente).
-            *   **Tecnologias:** Kotlin (Coroutines, Flow), Supabase Kotlin Client (Auth, Postgrest, Realtime), Retrofit, OkHttp, Kotlinx Serialization, Hilt.
+                *   `WorkerModule` (ou similar): Configura o `WorkManager` e fornece a `HiltWorkerFactory`.
+            *   **Tecnologias:** Kotlin (Coroutines, Flow), Supabase Kotlin Client (Auth, Postgrest, Realtime, Functions), Kotlinx Serialization, Hilt, **WorkManager**.
 
 *   **Backend de IA (Serviço Dedicado):**
     *   **Propósito:** Orquestra e executa todo o pipeline de processamento de IA descrito no `Prompt-AI.txt`. Responsável por STT, diarização/verificação, geração de embeddings, RAG, chamadas LLM, controle ético e TTS.
@@ -67,8 +67,8 @@ Adotamos a **Clean Architecture** para separar as preocupações e promover a te
 *   **~~Android TextToSpeech:~~** **Substituído** pela API de TTS do Backend de IA para a voz principal do assistente. Pode ser usado para feedback secundário/local se necessário.
 *   **Tecnologias de IA (Backend):** Whisper/Vosk, pyannote, SentenceTransformers, Haystack/LangChain, Coqui/Mozilla TTS, etc. (conforme `Prompt-AI.txt`).
 *   **Kotlinx DateTime & Serialization:** Para manipulação de data/hora e JSON no Android.
-*   **Google AI Generative SDK:** Biblioteca cliente para interagir com a API Gemini.
+*   **Google AI Generative SDK:** Biblioteca cliente para interagir com a API Gemini (usada *pela Edge Function*).
 *   **Kotlinx Serialization:** Para serialização/desserialização JSON entre App e Edge Function.
-*   **Supabase Kotlin Client:** Biblioteca completa para interagir com Auth, Postgrest e Realtime.
-*   **~~WorkManager:~~** **Removido.**
+*   **Supabase Kotlin Client:** Biblioteca completa para interagir com Auth, Postgrest, Realtime e Functions.
+*   **WorkManager:** Para execução de tarefas em background (sincronização de dados).
 *   **Kotlinx DateTime & Serialization:** Para manipulação de data/hora e JSON no Android. 

@@ -5,13 +5,13 @@
 # Android Gradle Plugin
 agp = "8.9.2"
 # Kotlin
-kotlin = "1.9.24"
+kotlin = "2.0.0"
 # KSP (Usar versão consistente com settings.gradle.kts)
-ksp = "1.9.24-1.0.20"
+ksp = "2.0.0-1.0.21"
 # Hilt
 hilt = "2.50"
 # Compose Compiler
-composeCompiler = "1.5.14"
+composeCompiler = "1.5.21"
 # androidx
 coreKtx = "1.13.1"
 lifecycleRuntimeKtx = "2.8.2"
@@ -27,7 +27,7 @@ lifecycleViewmodel = "2.8.2"
 coroutines = "1.8.0"
 serializationJson = "1.6.3"
 # supabase
-supabaseKotlin = "2.4.0" # Versão da BoM do Supabase
+supabaseKotlin = "2.4.0"
 # junit
 junit4 = "4.13.2"
 accompanistPermissions = "0.32.0"
@@ -42,6 +42,7 @@ hiltWork = "1.2.0"
 retrofit = "2.9.0" # Ou versão mais recente
 retrofit-kotlinx-serialization-converter = "1.0.0" # Ou versão mais recente
 okhttp = "4.12.0" # Ou a versão mais recente compatível
+androidx-room = "2.7.1"
 
 [libraries]
 # Adicionar alias para kotlin-stdlib
@@ -66,10 +67,11 @@ androidx-material-icons-extended = { group = "androidx.compose.material", name =
 androidx-navigation-compose = { group = "androidx.navigation", name = "navigation-compose", version.ref = "navigationCompose" }
 
 # AndroidX Room
-# androidx-room-runtime = { group = "androidx.room", name = "room-runtime", version.ref = "room" }
-# androidx-room-compiler = { group = "androidx.room", name = "room-compiler", version.ref = "room" }
-# androidx-room-ktx = { group = "androidx.room", name = "room-ktx", version.ref = "room" }
-# androidx-room-testing = { group = "androidx.room", name = "room-testing", version.ref = "room" }
+androidx-room-runtime = { group = "androidx.room", name = "room-runtime", version.ref = "androidx-room" }
+androidx-room-ktx = { group = "androidx.room", name = "room-ktx", version.ref = "androidx-room" }
+androidx-room-compiler = { group = "androidx.room", name = "room-compiler", version.ref = "androidx-room" }
+# androidx-room-paging = { group = "androidx.room", name = "room-paging", version.ref = "androidx-room" } # Opcional
+# androidx-room-testing = { group = "androidx.room", name = "room-testing", version.ref = "androidx-room" } # Opcional
 
 # Hilt / Dagger
 dagger-hilt-android = { group = "com.google.dagger", name = "hilt-android", version.ref = "hilt" }
@@ -87,6 +89,7 @@ supabase-postgrest = { group = "io.github.jan-tennert.supabase", name = "postgre
 supabase-storage = { group = "io.github.jan-tennert.supabase", name = "storage-kt", version.ref = "supabaseKotlin" }
 supabase-realtime = { group = "io.github.jan-tennert.supabase", name = "realtime-kt", version.ref = "supabaseKotlin" }
 supabase-compose-auth = { group = "io.github.jan-tennert.supabase", name = "compose-auth", version.ref = "supabaseKotlin" }
+supabase-functions = { group = "io.github.jan-tennert.supabase", name = "functions-kt", version.ref = "supabaseKotlin" }
 
 # Testing
 junit = { group = "junit", name = "junit", version.ref = "junit4" }

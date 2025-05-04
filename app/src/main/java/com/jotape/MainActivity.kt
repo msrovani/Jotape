@@ -57,9 +57,6 @@ class MainActivity : ComponentActivity() {
                                 SignUpScreen(
                                     viewModel = authViewModel,
                                     onNavigateToLogin = { navController.popBackStack() },
-                                    onSignUpSuccess = {
-                                        navController.popBackStack()
-                                    }
                                 )
                             }
                             composable(Routes.CONVERSATION) {

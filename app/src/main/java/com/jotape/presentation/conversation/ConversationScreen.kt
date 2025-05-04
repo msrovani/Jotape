@@ -5,9 +5,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.Logout
-import androidx.compose.material.icons.automirrored.filled.Send
-import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.ClearAll
+import androidx.compose.material.icons.filled.Send
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -36,12 +35,14 @@ fun ConversationScreen(
     val listState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
 
-    // Scroll to bottom when a new message arrives
+    // Gerenciar o estado do TextField localmente
+    var inputText by remember { mutableStateOf("") }
+
+    // Scroll to bottom when new messages arrive
     LaunchedEffect(uiState.interactions.size) {
         if (uiState.interactions.isNotEmpty()) {
             coroutineScope.launch {
-                // Scroll to the first item (which is the newest due to reversed list/query)
-                listState.animateScrollToItem(index = 0)
+                listState.animateScrollToItem(uiState.interactions.lastIndex)
             }
         }
     }
@@ -51,76 +52,82 @@ fun ConversationScreen(
             TopAppBar(
                 title = { Text("Jotape Assistant") },
                 actions = {
-                    // IconButton(onClick = { conversationViewModel.clearChatHistory() }) { // TODO: Re-enable when history clearing is implemented
-                    //     Icon(Icons.Filled.Delete, contentDescription = "Limpar Histórico")
+                    // Remover o botão de limpar histórico
+                    // IconButton(onClick = { viewModel.clearConversationHistory() }) {
+                    //     Icon(Icons.Default.ClearAll, contentDescription = "Clear History")
                     // }
-                    IconButton(onClick = { /* TODO: Show confirmation dialog? */ conversationViewModel.clearConversationHistory() }) { // Temporarily re-route for testing disabled state message
-                        Icon(Icons.Filled.Delete, contentDescription = "Limpar Histórico (Desativado)")
-                    }
-                    IconButton(onClick = { authViewModel.signOut() }) {
-                        Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = "Sair")
-                    }
                 }
             )
         },
         bottomBar = {
             InputBar(
-                text = uiState.inputText,
-                onTextChanged = { conversationViewModel.onInputTextChanged(it) },
-                onSendClick = { conversationViewModel.sendMessage() },
-                isLoading = uiState.isLoading // Pass loading state if needed for UI feedback
+                text = inputText,
+                onTextChanged = { inputText = it },
+                onSendClick = {
+                    // Chamar sendMessage com o texto local e limpar o campo
+                    if (inputText.isNotBlank() && !uiState.isSending) {
+                        conversationViewModel.sendMessage(messageText = inputText)
+                        inputText = "" // Limpar campo após envio
+                    }
+                },
+                isLoading = uiState.isSending
             )
         }
     ) { paddingValues ->
-        MessageList(
+        Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(paddingValues),
-            interactions = uiState.interactions,
-            listState = listState
-        )
-    }
-}
+                .padding(paddingValues)
+                .padding(horizontal = 8.dp)
+        ) {
+            if (uiState.isLoading && uiState.interactions.isEmpty()) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator()
+                }
+            } else {
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    contentPadding = PaddingValues(vertical = 8.dp)
+                ) {
+                    items(uiState.interactions, key = { it.id }) { interaction ->
+                        MessageBubble(interaction = interaction)
+                    }
+                }
+            }
 
-@Composable
-fun MessageList(
-    modifier: Modifier = Modifier,
-    interactions: List<Interaction>,
-    listState: androidx.compose.foundation.lazy.LazyListState
-) {
-    LazyColumn(
-        modifier = modifier.padding(horizontal = 8.dp),
-        state = listState,
-        reverseLayout = true // Show newest messages at the bottom
-    ) {
-        items(interactions, key = { it.id }) { interaction ->
-            MessageItem(interaction = interaction)
+            if (uiState.error != null) {
+                Text(
+                    text = "Erro: ${uiState.error}",
+                    color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.padding(vertical = 4.dp)
+                )
+            }
         }
     }
 }
 
 @Composable
-fun MessageItem(interaction: Interaction) {
+fun MessageBubble(interaction: Interaction) {
+    val alignment = if (interaction.isFromUser) Alignment.CenterEnd else Alignment.CenterStart
     val backgroundColor = if (interaction.isFromUser) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.secondaryContainer
-    val textColor = if (interaction.isFromUser) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSecondaryContainer
 
-    // Row to hold the bubble
-    Row(
+    Box(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 2.dp, horizontal = 4.dp),
-        verticalAlignment = Alignment.Bottom,
-        horizontalArrangement = if (interaction.isFromUser) Arrangement.End else Arrangement.Start
+            .padding(
+                start = if (interaction.isFromUser) 40.dp else 0.dp,
+                end = if (interaction.isFromUser) 0.dp else 40.dp
+            )
     ) {
-        // Message Bubble (Card)
         Card(
-            modifier = Modifier.widthIn(max = 300.dp),
+            modifier = Modifier.align(alignment),
             colors = CardDefaults.cardColors(containerColor = backgroundColor)
         ) {
             Text(
                 text = interaction.text,
-                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                color = textColor
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
             )
         }
     }
@@ -153,25 +160,47 @@ fun InputBar(
             )
             Spacer(modifier = Modifier.width(8.dp))
             IconButton(onClick = onSendClick, enabled = text.isNotBlank() && !isLoading) {
-                Icon(
-                    Icons.AutoMirrored.Filled.Send,
-                    contentDescription = "Send Message",
-                    tint = if (text.isNotBlank() && !isLoading) MaterialTheme.colorScheme.primary else Color.Gray
-                )
+                if (isLoading) {
+                    CircularProgressIndicator(modifier = Modifier.size(24.dp))
+                } else {
+                    Icon(Icons.Filled.Send, contentDescription = "Send Message")
+                }
             }
-            // Optional: Show progress indicator when loading
-            // if (isLoading) {
-            //     Spacer(modifier = Modifier.width(8.dp))
-            //     CircularProgressIndicator(modifier = Modifier.size(24.dp))
-            // }
         }
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Preview(showBackground = true)
 @Composable
-fun DefaultPreview() {
+fun ConversationScreenPreview() {
     JotapeTheme {
-        ConversationScreen()
+        // Mock data for preview
+        val previewState = ConversationViewModel.ConversationUiState(
+            interactions = listOf(
+                Interaction("1", true, "Olá!", Instant.now()),
+                Interaction("2", false, "Oi! Como posso ajudar?", Instant.now().plusSeconds(1)),
+                Interaction("3", true, "Gostaria de saber mais sobre IA.", Instant.now().plusSeconds(2))
+            ),
+            isLoading = false,
+            isSending = false,
+            error = null
+        )
+        // Need a way to preview the screen without a real ViewModel
+        // For now, just show the basic layout structure
+        Scaffold(
+            topBar = { TopAppBar(title = { Text("Jotape Assistant Preview") }) }
+        ) { paddingValues ->
+            Column(modifier = Modifier.padding(paddingValues).fillMaxSize()) {
+                Text("Preview Area - List would go here", modifier = Modifier.weight(1f))
+                Text("Error Area (if any)")
+                Row(modifier = Modifier.fillMaxWidth()) {
+                    OutlinedTextField(value = "", onValueChange = {}, modifier = Modifier.weight(1f))
+                    IconButton(onClick = { /*TODO*/ }) {
+                        Icon(Icons.Filled.Send, contentDescription = null)
+                    }
+                }
+            }
+        }
     }
 } 

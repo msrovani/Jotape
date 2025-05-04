@@ -19,7 +19,7 @@ interface JotapeApiService {
      *
      * Note: The Authorization header is typically added via an Interceptor.
      */
-    @POST("functions/v1/process-user-command") // Relative path to Supabase function
+    @POST("process-user-command") // Corrected relative path
     suspend fun processUserCommand(
         // @Header("Authorization") bearerToken: String, // Added by Interceptor
         @Body request: ProcessCommandRequest

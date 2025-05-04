@@ -7,6 +7,7 @@ plugins {
     alias(libs.plugins.ksp)
     alias(libs.plugins.dagger.hilt)
     alias(libs.plugins.kotlin.serialization)
+    id("org.jetbrains.kotlin.plugin.compose") version libs.versions.kotlin.get()
 }
 
 // Load properties from local.properties
@@ -28,6 +29,9 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        vectorDrawables {
+            useSupportLibrary = true
+        }
 
         // Read values from local.properties
         val supabaseUrl: String = localProperties.getProperty("supabase.url", "YOUR_DEFAULT_URL_IF_NOT_SET")
@@ -35,6 +39,8 @@ android {
         val googleClientId: String = localProperties.getProperty("google.web.client.id", "YOUR_DEFAULT_GOOGLE_CLIENT_ID_IF_NOT_SET")
         // Ler a chave da API do Gemini
         val geminiApiKey: String = localProperties.getProperty("gemini.api.key", "YOUR_DEFAULT_GEMINI_KEY_IF_NOT_SET")
+        // Ler o nome do modelo Gemini
+        val geminiModelName: String = localProperties.getProperty("gemini.model.name", "gemini-1.5-flash-latest")
 
         // Expose as BuildConfig fields using triple quotes to embed the string value correctly
         // Forma correta escapando aspas para Java: "\"valor\""
@@ -42,6 +48,10 @@ android {
         buildConfigField("String", "SUPABASE_ANON_KEY",    "\"${supabaseKey.replace("\"", "\\\"")}\"")
         buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"${googleClientId.replace("\"", "\\\"")}\"")
         buildConfigField("String", "GEMINI_API_KEY",       "\"${geminiApiKey.replace("\"", "\\\"")}\"")
+        // Adicionar campo para o nome do modelo Gemini
+        buildConfigField("String", "GEMINI_MODEL_NAME",    "\"${geminiModelName.replace("\"", "\\\"")}\"")
+        // Adicionar a Service Role Key
+        buildConfigField("String", "SUPABASE_SERVICE_ROLE_KEY", "\"${localProperties.getProperty("supabase.service.role.key") ?: ""}\"")
     }
 
     buildTypes {
@@ -51,6 +61,11 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            // Disponibilizar chaves também para release build
+            buildConfigField("String", "SUPABASE_URL", "\"${localProperties.getProperty("supabase.url") ?: ""}\"")
+            buildConfigField("String", "SUPABASE_ANON_KEY", "\"${localProperties.getProperty("supabase.anon.key") ?: ""}\"")
+            buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"${localProperties.getProperty("google.web.client.id") ?: ""}\"")
+            buildConfigField("String", "SUPABASE_SERVICE_ROLE_KEY", "\"${localProperties.getProperty("supabase.service.role.key") ?: ""}\"")
         }
         debug {
             // Load properties from local.properties
@@ -83,6 +98,10 @@ android {
             // Gemini API Key - Read from local.properties
             val geminiApiKey = getLocalProperty("gemini.api.key", "NO_GEMINI_KEY_IN_PROPERTIES") // Provide a default if not found
             buildConfigField("String", "GEMINI_API_KEY", "\"${geminiApiKey.replace("\"", "\\\"")}\"")
+
+            // Gemini Model Name - Read from local.properties
+            val geminiModelName = getLocalProperty("gemini.model.name", "gemini-1.5-flash-latest") // Provide a default if not found
+            buildConfigField("String", "GEMINI_MODEL_NAME", "\"${geminiModelName.replace("\"", "\\\"")}\"")
 
             // Gemini API URL - REMOVED, not needed in client if backend handles it
             // val geminiApiUrl = getLocalProperty("Gemini.api.url", "")
@@ -157,6 +176,18 @@ dependencies {
     implementation(libs.supabase.storage)
     implementation(libs.supabase.realtime)
     implementation(libs.supabase.compose.auth)
+    implementation(libs.supabase.functions)
+
+    // Ktor engine needed by Supabase client
+    implementation(libs.ktor.client.okhttp)
+
+    // Adicionar a dependência do Google AI SDK (Gemini)
+    implementation("com.google.ai.client.generativeai:generativeai:0.9.0")
+
+    // Dependências do Room
+    implementation(libs.androidx.room.runtime)
+    implementation(libs.androidx.room.ktx)
+    ksp(libs.androidx.room.compiler)
 
     androidTestImplementation(libs.androidx.junit)
 }

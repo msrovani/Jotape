@@ -34,11 +34,13 @@ Este documento detalha as tarefas pendentes para a implementação completa das 
     *   [x] Definir `DomainResult` wrapper no Android.
     *   [x] Configurar `GeminiModule` para ler chave API do `BuildConfig`.
     *   [x] Configurar `WorkManager` para usar Hilt (`JotapeApplication` simplificada).
-    *   [x] **(Novo)** Implementar `PromptManager` para centralizar prompts.
+    *   [ ] **(Novo)** Implementar `PromptManager` para centralizar prompts.
 *   [ ] **(A-R) Refatoração Android:**
     *   [ ] Mover lógica de IA do `InteractionRepositoryImpl` para UseCases dedicados.
     *   [ ] Mover prompts do `PromptManager` para `strings.xml` para i18n.
-    *   [ ] Investigar e corrigir erros persistentes de Linter no IDE.
+    *   [ ] **(Novo)** Investigar e corrigir erros persistentes de Linter no IDE.
+    *   [ ] **(Novo)** Investigar e corrigir fluxo de Google Sign-In.
+    *   [ ] **(Novo)** Refatorar `InteractionRepositoryImpl` para usar UseCases para chamadas Gemini/DB (desacoplamento).
 *   [ ] **(A-R)** Reconciliar/Refatorar interface `VoiceRepository` para refletir chamadas ao Backend IA/Edge Function.
 *   [x] **(A-R)** Organizar pacotes conforme Clean Architecture (movido DatabaseModule).
 
@@ -58,28 +60,29 @@ Este documento detalha as tarefas pendentes para a implementação completa das 
 *   [ ] **(A)** Implementar recuperação de senha.
 *   [ ] **(A)** Refinar tratamento de erros Auth.
 *   [ ] **(A)** Implementar gerenciamento de perfil do usuário (se `user_profiles` for usado).
+*   [ ] **(A) (Pendente)** Investigar e corrigir fluxo de Google Sign-In.
 
-*   **Status:** Autenticação básica (Email/Senha c/ Confirmação, Google, Logout) FUNCIONAL. Tarefas pendentes: recuperação de senha, perfil, tratamento de erro refinado.
+*   **Status:** Autenticação Email/Senha c/ Confirmação FUNCIONAL. Logout FUNCIONAL. Google Sign-In PENDENTE DE CORREÇÃO. Tarefas pendentes: recuperação de senha, perfil, tratamento de erro refinado.
 
 ---
 
 ## 💬 (S/A) Conversa, Interações e Sincronização (`interactions`)
 
 *   [x] **(S)** Definir schema `interactions` (com `user_id`). Habilitar RLS.
-*   [x] **(A)** Implementar `InteractionDao` (Room).
+*   [ ] **(A)** ~~Implementar `InteractionDao` (Room).~~ (Removido, persistência primária agora é Supabase).
 *   [x] **(A)** Implementar `InteractionRepositoryImpl` (Android):
-    *   [x] Usa `Room` para salvar/ler localmente.
-    *   [x] Usa `Google AI SDK` para chamar Gemini (com prompt do `PromptManager`).
-    *   [x] Tenta sincronizar imediatamente com Supabase (`trySyncInteractionImmediately`).
-    *   [x] Usa `WorkManager` (`SyncInteractionWorker`) para sincronização em background.
+    *   [x] Usa `SupabaseClient.functions` para chamar Edge Function (`extract-chat-and-points`).
+    *   [x] Usa `SupabaseClient.realtime` para receber atualizações do DB.
+    *   [x] Usa `SupabaseClient.postgrest` para buscar histórico inicial e limpar.
+    *   [x] Usa `WorkManager` (`SyncInteractionWorker`) para sincronização em background como fallback.
 *   [x] **(A)** Implementar `SyncInteractionWorker` (HiltWorker).
 *   [x] **(A)** Adaptar `ConversationViewModel` (Android):
-    *   [x] Chamar `InteractionRepository`.
+    *   [x] Chamar `InteractionRepository` (`sendMessage`, `getAllInteractions`).
     *   [x] Expor estado de UI (mensagens, loading, erro) via `StateFlow`.
     *   [x] Implementar `clearChatHistory()`.
-*   [x] **(A)** Implementar `ConversationScreen` (Compose) para exibir mensagens (com status 'R'/'S'), input e loading.
+*   [x] **(A)** Implementar `ConversationScreen` (Compose) para exibir mensagens, input e loading.
 
-*   **Status:** Chat funcional com persistência local (Room), geração de resposta via Gemini (usando PromptManager), sincronização imediata (best-effort) e sincronização robusta em background (WorkManager) com Supabase. Mensagens exibem status R/S (requer verificação visual se R->S está funcionando como esperado após sync). Próximos passos: otimizações, tratamento de erros visuais, talvez paginação.
+*   **Status:** Chat funcional com interação via Edge Function (`extract-chat-and-points`) e Gemini. Atualizações da UI via Supabase Realtime. Sincronização robusta em background via WorkManager. Persistência primária no Supabase. Próximos passos: implementar `PromptManager`, refatorar repositório com UseCases, otimizar UI/UX.
 
 ---
 

@@ -64,7 +64,7 @@ async function getInteractionHistory(supabaseClient: SupabaseClient, userId: str
     }
     // Inverte para ter a ordem cronológica correta (mais antigo primeiro)
     return (data || []).reverse();
-}
+  }
 
 /**
  * Formata o histórico de interações para a API do Gemini.
@@ -164,7 +164,7 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: 'Missing prompt or userId in request body' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 400,
-      });
+        });
     }
     const { prompt, userId: payloadUserId } = payload;
 
@@ -256,7 +256,7 @@ serve(async (req) => {
      }
     return new Response(JSON.stringify({ error: 'Internal Server Error' }), { // Mensagem genérica para o cliente
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 500,
+      status: 500,
     });
   }
 })

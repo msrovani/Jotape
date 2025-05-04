@@ -19,7 +19,7 @@ import com.jotape.R
 fun SignUpScreen(
     viewModel: AuthViewModel = hiltViewModel(),
     onNavigateToLogin: () -> Unit,
-    onSignUpSuccess: () -> Unit
+    //onSignUpSuccess: () -> Unit // Remover parâmetro não utilizado
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var confirmPassword by remember { mutableStateOf("") }

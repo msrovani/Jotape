@@ -2,17 +2,17 @@
 
 ## 1. Visão Geral
 
-O Jotape implementa um fluxo para interações de chat usando o App Android Nativo (Kotlin/Compose), uma **Edge Function no Supabase (`process-user-command`)** que orquestra a interação com a API Google Gemini e o **banco de dados Supabase (Postgres)** para autenticação e persistência do histórico. A comunicação com o histórico agora utiliza **Supabase Realtime** para atualizações em tempo real. **A funcionalidade offline foi removida.**
+O Jotape implementa um fluxo para interações de chat usando o App Android Nativo (Kotlin/Compose), uma **Edge Function no Supabase (`extract-chat-and-points`)** que orquestra a interação com a API Google Gemini, e o **banco de dados Supabase (Postgres)** para autenticação e persistência do histórico. A comunicação com o histórico utiliza **Supabase Realtime** para atualizações em tempo real, e o **`WorkManager`** para sincronização robusta em background.
 
-## 2. Fluxo de Envio de Mensagem de Chat
+## 2. Fluxo de Envio de Mensagem de Chat (Via Edge Function)
 
 ```mermaid
 sequenceDiagram
     participant UI as Tela Conversa (Compose)
     participant ViewModel as ConversationViewModel
     participant Repo as InteractionRepositoryImpl
-    participant API as JotapeApiService (Retrofit)
-    participant EdgeFunc as Supabase Edge Func (process-user-command)
+    participant SupaFunc as SupabaseClient.functions
+    participant EdgeFunc as Edge Func (extract-chat-and-points)
     participant SupabaseDB as Supabase DB (Postgres)
     participant Gemini as API Google Gemini
 
@@ -20,27 +20,27 @@ sequenceDiagram
     ViewModel->>Repo: sendMessage(textoUsuario)
     activate Repo
 
-    Repo->>API: POST /process-user-command (prompt, userId)
-    activate API
-    API->>EdgeFunc: Invoca a Edge Function
-    deactivate API
+    Repo->>SupaFunc: invoke("extract-chat-and-points", payload(textoUsuario, historico))
+    activate SupaFunc
+    SupaFunc->>EdgeFunc: Invoca a Edge Function via HTTPS
+    deactivate SupaFunc
     activate EdgeFunc
 
-    EdgeFunc->>SupabaseDB: Salvar Msg Usuário (user_input)
-    EdgeFunc->>SupabaseDB: Buscar Histórico Recente
-    SupabaseDB-->>EdgeFunc: Retorna Histórico
-    EdgeFunc->>EdgeFunc: Formatar Histórico + Prompt Sistema + Input Atual
-    EdgeFunc->>Gemini: generateContent(promptCompleto)
+    EdgeFunc->>Gemini: generateContent(promptFormatado)
     activate Gemini
-    Gemini-->>EdgeFunc: Retorna Resposta Gemini (ou erro/bloqueio)
+    Gemini-->>EdgeFunc: Retorna Resposta Gemini
     deactivate Gemini
-    EdgeFunc->>SupabaseDB: Salvar Resposta Assistente (assistant_response)
-    EdgeFunc-->>Repo: Retorna HTTP 200 (com corpo da resposta) ou Erro
+
+    Note right of EdgeFunc: A Edge Function PODE salvar as interações no DB,
+    Note right of EdgeFunc: ou pode depender do Realtime/App para isso.
+    Note right of EdgeFunc: Fluxo atual retorna só a resposta.
+
+    EdgeFunc-->>Repo: Retorna HTTP 200 (corpo com resposta Gemini) ou Erro
     deactivate EdgeFunc
 
-    alt Chamada API OK
-        Repo-->>ViewModel: Retorna DomainResult.Success
-    else Chamada API Falha
+    alt Chamada bem-sucedida
+        Repo-->>ViewModel: Retorna DomainResult.Success(Unit)
+    else Chamada falhou
         Repo-->>ViewModel: Retorna DomainResult.Error(mensagem)
     end
     deactivate Repo
@@ -58,40 +58,48 @@ ViewModel->>UI: Atualiza Estado (Nova lista de mensagens)
 **Explicação Detalhada do Fluxo:**
 
 1.  **Entrada do Usuário:** O usuário digita na `ConversationScreen` e clica em enviar.
-2.  **ViewModel:** A `ConversationViewModel` recebe o texto, limpa o campo de input, marca `isSending = true` e chama `interactionRepository.sendMessage(textoUsuario)`.
+2.  **ViewModel:** A `ConversationViewModel` recebe o texto, limpa o campo de input, marca `isSending = true` (ou estado de loading) e chama `interactionRepository.sendMessage(textoUsuario)`.
 3.  **Repositório (`InteractionRepositoryImpl`):**
     *   Obtém o `userId` atual.
-    *   Chama a `JotapeApiService` (Retrofit) para invocar a Edge Function `process-user-command` no Supabase, passando o `prompt` (texto do usuário) e o `userId`. O `AuthInterceptor` adiciona os headers `apikey` e `Authorization` (JWT).
-    *   **A Edge Function (`process-user-command`) executa a seguinte lógica:**
-        *   Valida a requisição e o JWT.
-        *   Salva a mensagem do usuário (`user_input`) na tabela `interactions` do Supabase Postgres, associada ao `user_id`.
-        *   Busca as interações recentes (últimas N) para o `user_id` no Supabase Postgres.
-        *   Formata o histórico recuperado e o prompt atual para enviar ao Gemini.
-        *   Chama a API do Google Gemini (`gemini-2.0-flash`) com o prompt formatado.
-        *   Trata a resposta do Gemini (incluindo possíveis erros ou bloqueios de segurança).
-        *   Salva a resposta do assistente (`assistant_response`) na tabela `interactions` do Supabase Postgres.
-        *   Retorna uma resposta HTTP (200 OK com a resposta do bot em caso de sucesso, ou um erro apropriado).
-    *   O Repositório recebe a resposta da API. Se a chamada foi bem-sucedida, retorna `DomainResult.Success` para o ViewModel. Se falhou (erro de rede, erro 4xx/5xx da Edge Function), retorna `DomainResult.Error` com uma mensagem apropriada.
-    *   O estado `isSending` no ViewModel é marcado como `false`.
+    *   Busca o histórico recente de interações no Supabase (via Postgrest).
+    *   Prepara o payload (`ExtractChatPayload`) contendo a mensagem do usuário e o histórico formatado.
+    *   Chama `supabaseClient.functions.invoke("extract-chat-and-points", body = payload)`. A biblioteca cliente lida com a adição de headers de autenticação necessários.
+    *   **A Edge Function (`extract-chat-and-points`) executa a seguinte lógica:**
+        *   Valida a requisição (e opcionalmente o JWT).
+        *   Recebe o payload (mensagem atual, histórico).
+        *   Chama a API do Google Gemini com o prompt formatado (incluindo histórico).
+        *   Trata a resposta do Gemini.
+        *   **Não salva no banco de dados neste fluxo.** A persistência é agora delegada ao cliente via Realtime ou Worker.
+        *   Retorna uma resposta HTTP (200 OK com a resposta do Gemini no corpo, ou um erro apropriado).
+    *   O Repositório recebe a resposta da função. Se a chamada foi bem-sucedida (HTTP 2xx), retorna `DomainResult.Success(Unit)` (indicando que a mensagem foi processada, mas a UI será atualizada via Realtime).
+    *   Se a chamada falhou (erro de rede, erro 4xx/5xx da Edge Function), retorna `DomainResult.Error` com uma mensagem apropriada.
+    *   O estado de loading no ViewModel é desativado.
 4.  **Atualização da UI (Via Realtime):**
-    *   Independentemente da chamada `sendMessage`, o `InteractionRepositoryImpl` mantém um `Flow` aberto (usando `supabaseClient.realtime.postgresChangeFlow`) que escuta por inserções (`INSERT`) na tabela `interactions` para o usuário atual.
-    *   Quando a Edge Function salva a mensagem do usuário e depois a resposta do assistente no banco de dados, o Supabase Realtime notifica o cliente (App Android).
+    *   **Importante:** Como a Edge Function *não* salva mais diretamente (neste fluxo), o Realtime será ativado quando *outro* mecanismo (como o `SyncInteractionWorker` ou uma escrita direta pelo app após receber a resposta) salvar as interações no banco de dados.
+    *   O `InteractionRepositoryImpl` mantém um `Flow` aberto (usando `supabaseClient.realtime.postgresChangeFlow`) que escuta por inserções (`INSERT`) na tabela `interactions` para o usuário atual.
+    *   Quando uma interação (seja do usuário ou do assistente) é salva no banco de dados por *qualquer* meio, o Supabase Realtime notifica o cliente (App Android).
     *   Ao receber a notificação, o `Flow` no repositório dispara uma nova busca completa da lista de interações no Supabase Postgrest, ordenada por timestamp.
     *   A nova lista de interações é emitida pelo `Flow`.
     *   O `ConversationViewModel`, que está coletando este `Flow`, recebe a lista atualizada.
     *   O ViewModel atualiza o `StateFlow` da UI.
-    *   A `ConversationScreen` (Compose) reage a essa mudança no estado e re-renderiza a lista de mensagens, exibindo as novas interações na ordem correta.
-5.  **~~Worker em Background (`SyncInteractionWorker`):~~** **Removido.** A persistência agora é feita diretamente pela Edge Function, e a atualização da UI é via Realtime. Não há mais cache local ou sincronização em background.
+    *   A `ConversationScreen` (Compose) reage a essa mudança no estado e re-renderiza a lista de mensagens.
+5.  **Sincronização em Background (`SyncInteractionWorker`):**
+    *   Este worker é enfileirado pelo `InteractionRepository` (ou `ViewModel`) quando novas interações são geradas localmente (antes mesmo de serem confirmadas pelo Realtime) ou como um mecanismo de fallback periódico.
+    *   O `SyncInteractionWorker` busca interações locais que ainda não foram sincronizadas com o Supabase.
+    *   Tenta salvar essas interações no Supabase Postgrest.
+    *   Marca as interações como sincronizadas localmente em caso de sucesso.
+    *   Retenta a sincronização em caso de falha (respeitando as políticas do `WorkManager`).
+    *   **Nota:** A existência deste worker garante que, mesmo que a escrita via Edge Function ou Realtime falhe temporariamente, as mensagens eventualmente chegarão ao backend.
 
 ## 3. Componentes Chave do Fluxo (Implementação)
 
 *   **ViewModel (`ConversationViewModel`):** Orquestra fluxo no cliente, observa estado do repositório via `Flow`.
-*   **Repositório (`InteractionRepositoryImpl`):** Orquestra acesso a dados (API via Retrofit, Supabase Realtime/Postgrest).
-*   **API Service (`JotapeApiService`):** Interface Retrofit para chamar a Edge Function.
-*   **Edge Function (`process-user-command`):** Lógica server-side no Supabase (Deno/TypeScript) que interage com DB e Gemini.
-*   **Supabase Client (`SupabaseClient`, `Postgrest`, `Auth`, `Realtime`):** Biblioteca Kotlin para interagir com Supabase (Auth, DB, Realtime).
+*   **Repositório (`InteractionRepositoryImpl`):** Orquestra acesso a dados (Supabase Functions, Realtime, Postgrest), enfileira `WorkManager`.
+*   **Edge Function (`extract-chat-and-points`):** Lógica server-side no Supabase (Deno/TypeScript) que interage com Gemini.
+*   **Supabase Client (`SupabaseClient`, `Postgrest`, `Auth`, `Realtime`, `Functions`):** Biblioteca Kotlin para interagir com Supabase.
 *   **Gemini SDK (`google-ai-generativelanguage` via `fetch` na Edge Function):** Biblioteca/API para interagir com a API Gemini do lado do servidor.
-*   **Hilt (`PromptManager`, Modules):** Para injeção de dependência no Android.
+*   **WorkManager (`SyncInteractionWorker`, `HiltWorkerFactory`):** Para sincronização em background.
+*   **Hilt Modules (`SupabaseModule`, `RepositoryModule`, `WorkerModule`):** Para injeção de dependência no Android.
 
 ## 4. Fluxos de Autenticação e Logout
 
@@ -106,8 +114,8 @@ ViewModel->>UI: Atualiza Estado (Nova lista de mensagens)
 
 ## 6. Otimizações
 
-*   **~~Cache:~~** **Removido.** Não há mais cache local com Room.
-*   **Realtime:** A UI é atualizada em tempo real assim que novas mensagens são salvas no banco de dados, proporcionando feedback rápido.
+*   **~~Cache:~~** **Removido/Simplificado.** O estado principal vem do Supabase via Realtime/Postgrest. Pode haver um estado temporário no ViewModel.
+*   **Realtime:** A UI é atualizada *eventualmente* quando novas mensagens são salvas no banco de dados (seja pelo Worker ou outro mecanismo) e a notificação chega.
 *   **Edge Function:** Centraliza a lógica de interação com o Gemini e o banco de dados, simplificando o cliente.
 
 ## 7. Monitoramento
@@ -117,7 +125,7 @@ ViewModel->>UI: Atualiza Estado (Nova lista de mensagens)
 ## 8. Considerações de Segurança
 
 *   **Validação de Input:** No App e **principalmente na Edge Function**.
-*   **Proteção de Dados:** HTTPS entre App e Edge Function. Edge Function lida com chaves de API externas (Gemini, Supabase Service Key se necessário).
+*   **Proteção de Dados:** HTTPS entre App e Supabase (Functions, Realtime, Postgrest). Edge Function lida com chaves de API externas (Gemini). App lida com chaves Supabase (anon key).
 
 ## 9. Performance
 
